@@ -6,7 +6,7 @@ on:
   workflow_dispatch:      # Cho phép chạy thủ công
   push:                   # Chạy khi có thay đổi trên nhánh chính
     branches:
-      - main  # Nhánh chính là 'main'
+      - main
 
 jobs:
   generate:
@@ -22,7 +22,7 @@ jobs:
       - name: Generate GitHub Contributions Snake Animations
         uses: Platane/snk@v3
         with:
-          github_user_name: Coffat  # Tên người dùng hoặc tổ chức
+          github_user_name: Coffat  # Tên người dùng/tổ chức GitHub
           outputs: |
             dist/github-snake.svg
             dist/github-snake-dark.svg?palette=github-dark
