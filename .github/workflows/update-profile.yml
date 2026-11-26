@@ -1,0 +1,59 @@
+name: Update Profile SVGs
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/generate_profile.py"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate Cozy Lo-fi Profile SVGs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: Coffat
+        run: python3 scripts/generate_profile.py --skip-pacman
+
+      - name: Generate Pac-Man Contribution Graph
+        uses: abozanona/pacman-contribution-graph@main
+        with:
+          github_user_name: ${{ github.repository_owner }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          games: "pacman"
+          player_style: "opportunistic"
+          hide_month_labels: "false"
+
+      - name: Copy Pac-Man SVGs to assets
+        run: |
+          mkdir -p assets
+          cp -f dist/pacman-contribution-graph*.svg assets/
+
+      - name: Commit and push updated SVGs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/*.svg
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(profile): update generated profile SVGs [skip ci]"
+            git push
+          else
+            echo "No SVG changes to commit."
+          fi
