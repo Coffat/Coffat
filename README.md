@@ -24,18 +24,10 @@
 
 <br />
 
-### Tech Stack
-
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://skillicons.dev/icons?i=ts,py,java,kotlin,cpp,go,rust,nextjs,react,angular,tailwind&theme=dark" />
-  <source media="(prefers-color-scheme: light)" srcset="https://skillicons.dev/icons?i=ts,py,java,kotlin,cpp,go,rust,nextjs,react,angular,tailwind&theme=light" />
-  <img alt="Languages and Frontend" src="https://skillicons.dev/icons?i=ts,py,java,kotlin,cpp,go,rust,nextjs,react,angular,tailwind&theme=dark" />
-</picture>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://skillicons.dev/icons?i=fastapi,spring,nodejs,postgres,redis,mongodb,docker,kubernetes,terraform,aws,gcp,cloudflare&theme=dark" />
-  <source media="(prefers-color-scheme: light)" srcset="https://skillicons.dev/icons?i=fastapi,spring,nodejs,postgres,redis,mongodb,docker,kubernetes,terraform,aws,gcp,cloudflare&theme=light" />
-  <img alt="Backend, Data, and Cloud" src="https://skillicons.dev/icons?i=fastapi,spring,nodejs,postgres,redis,mongodb,docker,kubernetes,terraform,aws,gcp,cloudflare&theme=dark" />
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/tech-marquee-dark.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="./assets/tech-marquee-light.svg" />
+  <img alt="Tech Stack — 23 technologies with official logos" src="./assets/tech-marquee-dark.svg" width="880" />
 </picture>
 
 <br />

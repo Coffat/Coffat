@@ -7,6 +7,7 @@ Generates paired Dark & Light 880px-wide SVGs in assets/:
   - hero-lofi-dark.svg                 / hero-lofi-light.svg
   - stats-cards-dark.svg               / stats-cards-light.svg
   - activity-graph-dark.svg            / activity-graph-light.svg
+  - tech-marquee-dark.svg              / tech-marquee-light.svg
   - pacman-contribution-graph-dark.svg / pacman-contribution-graph.svg (unless --skip-pacman)
 """
 
@@ -19,6 +20,7 @@ import os
 import re
 import urllib.error
 import urllib.request
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from xml.sax.saxutils import escape
 
@@ -1239,7 +1241,235 @@ def build_activity_graph_svg(theme_name: str, data: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# SVG 4: FALLBACK PAC-MAN CONTRIBUTION GAME (880 x 168, cozy card)
+# SVG 4: ANIMATED TECH STACK MARQUEE WITH OFFICIAL DEVICON LOGOS (880 x 168)
+# ---------------------------------------------------------------------------
+DEVICON_CDN = "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons"
+
+TECH_ROW_1: list[tuple[str, str]] = [
+    ("TypeScript", "typescript/typescript-original.svg"),
+    ("Python", "python/python-original.svg"),
+    ("Java", "java/java-original.svg"),
+    ("Kotlin", "kotlin/kotlin-original.svg"),
+    ("C++", "cplusplus/cplusplus-original.svg"),
+    ("Go", "go/go-original-wordmark.svg"),
+    ("Rust", "rust/rust-original.svg"),
+    ("Next.js", "nextjs/nextjs-original.svg"),
+    ("React", "react/react-original.svg"),
+    ("Angular", "angular/angular-original.svg"),
+    ("Tailwind CSS", "tailwindcss/tailwindcss-original.svg"),
+]
+
+TECH_ROW_2: list[tuple[str, str]] = [
+    ("FastAPI", "fastapi/fastapi-original.svg"),
+    ("Spring Boot", "spring/spring-original.svg"),
+    ("Node.js", "nodejs/nodejs-original.svg"),
+    ("PostgreSQL", "postgresql/postgresql-original.svg"),
+    ("Redis", "redis/redis-original.svg"),
+    ("MongoDB", "mongodb/mongodb-original.svg"),
+    ("Docker", "docker/docker-original.svg"),
+    ("Kubernetes", "kubernetes/kubernetes-original.svg"),
+    ("Terraform", "terraform/terraform-original.svg"),
+    ("AWS", "amazonwebservices/amazonwebservices-original.svg"),
+    ("GCP", "googlecloud/googlecloud-original.svg"),
+    ("Cloudflare", "cloudflare/cloudflare-original.svg"),
+]
+
+
+def fetch_devicon_svgs() -> dict[str, tuple[str, str]]:
+    """
+    Fetch all 23 official Devicon SVGs from jsDelivr.
+    Returns {tech_name: (viewBox, inner_svg_markup)}.
+    """
+    results: dict[str, tuple[str, str]] = {}
+    for name, rel_path in TECH_ROW_1 + TECH_ROW_2:
+        url = f"{DEVICON_CDN}/{rel_path}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Coffat-Profile-Generator/3.0"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            raw = resp.read().decode("utf-8")
+
+        # Validate raw SVG XML
+        ET.fromstring(raw)
+
+        # Strip XML declarations, DOCTYPE, and comments
+        cleaned = re.sub(r"<\?xml[^>]*\?>", "", raw, flags=re.IGNORECASE)
+        cleaned = re.sub(r"<!DOCTYPE[^>]*>", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"<!--.*?-->", "", cleaned, flags=re.DOTALL).strip()
+
+        # Extract viewBox and inner markup from root <svg ...>...</svg>
+        open_m = re.search(r"<svg\b([^>]*)>", cleaned, flags=re.IGNORECASE | re.DOTALL)
+        close_idx = cleaned.rfind("</svg>")
+        if not open_m or close_idx == -1:
+            raise ValueError(f"Invalid SVG wrapper for {name} ({url})")
+
+        attrs = open_m.group(1)
+        vb_m = re.search(r'viewBox="([^"]+)"', attrs)
+        viewbox = vb_m.group(1) if vb_m else "0 0 128 128"
+        inner = cleaned[open_m.end() : close_idx].strip()
+        results[name] = (viewbox, inner)
+
+    return results
+
+
+def namespace_devicon_inner(name: str, inner: str, prefix: str, theme_name: str) -> tuple[str, str]:
+    """
+    Prefix all internal SVG IDs / references / classes to prevent collisions when
+    inlining multiple Devicon SVGs and duplicated marquee copies.
+    Returns (svg_fill_attr, namespaced_inner_markup).
+    """
+    is_dark = theme_name == "dark"
+    out = inner
+
+    # Prefix id="..." and all url(#...) / href="#..." / xlink:href="#..."
+    out = re.sub(r'\bid="([^"]+)"', lambda m: f'id="{prefix}{m.group(1)}"', out)
+    out = re.sub(r'url\(#([^)]+)\)', lambda m: f"url(#{prefix}{m.group(1)})", out)
+    out = re.sub(
+        r'(xlink:href|href)="#([^"]+)"',
+        lambda m: f'{m.group(1)}="#{prefix}{m.group(2)}"',
+        out,
+    )
+
+    # Theme-aware contrast adjustments for dark/monochrome official logos
+    svg_fill = "#000000"
+    if name == "Rust":
+        svg_fill = "#f3efe8" if is_dark else "#1F1D1A"
+    elif name == "Next.js":
+        if is_dark:
+            # Keep authentic black circle + white gradient N, framed with a crisp light ring
+            out = re.sub(
+                r'<circle\s+cx="64"\s+cy="64"\s+r="64"\s*/>',
+                '<circle cx="64" cy="64" r="61" fill="#0d1117" stroke="#f3efe8" stroke-width="5"/>',
+                out,
+                count=1,
+            )
+        else:
+            out = re.sub(
+                r'<circle\s+cx="64"\s+cy="64"\s+r="64"\s*/>',
+                '<circle cx="64" cy="64" r="64" fill="#000000"/>',
+                out,
+                count=1,
+            )
+    elif name == "AWS" and is_dark:
+        out = re.sub(r"#252f3e", "#f3efe8", out, flags=re.IGNORECASE)
+
+    return svg_fill, out
+
+
+def estimate_pill_width(label: str) -> float:
+    """Compute generous pill width for 20px icon + 12.5px medium sans label."""
+    narrow = set("ilI.1trfj ")
+    wide = set("WM@GQODCSBPRANTKFJUVH+")
+    text_w = 0.0
+    for ch in label:
+        if ch in narrow:
+            text_w += 4.6
+        elif ch in wide or ch.isupper():
+            text_w += 8.6
+        else:
+            text_w += 7.1
+    # 12px left pad + 20px icon + 9px gap + text_w + 15px right pad
+    return max(82.0, round(12.0 + 20.0 + 9.0 + text_w + 15.0, 1))
+
+
+def build_tech_marquee_svg(theme_name: str, icons: dict[str, tuple[str, str]]) -> str:
+    t = THEMES[theme_name]
+    uid = f"tm-{theme_name}"
+    pill_h = 38.0
+    pill_gap = 12.0
+
+    def build_row(
+        row_items: list[tuple[str, str]],
+        row_idx: int,
+        row_y: float,
+    ) -> tuple[str, float]:
+        widths = [estimate_pill_width(name) for name, _ in row_items]
+        row_total_w = sum(widths) + pill_gap * len(row_items)
+
+        copies_svg: list[str] = []
+        for copy_idx in range(2):
+            cur_x = 16.0 + copy_idx * row_total_w
+            for item_idx, (name, _) in enumerate(row_items):
+                pw = widths[item_idx]
+                vb, raw_inner = icons[name]
+                prefix = f"ic-{theme_name}-r{row_idx}-c{copy_idx}-i{item_idx}-"
+                svg_fill, inner_ns = namespace_devicon_inner(name, raw_inner, prefix, theme_name)
+                icon_x = cur_x + 12.0
+                icon_y = row_y + (pill_h - 20.0) / 2.0
+                text_x = cur_x + 41.0
+                text_y = row_y + 23.5
+
+                copies_svg.append(
+                    f'      <g>'
+                    f'<rect x="{cur_x:.1f}" y="{row_y:.1f}" width="{pw:.1f}" height="{pill_h:.0f}" rx="10" '
+                    f'fill="{t["inner"]}" stroke="{t["pill_border"]}" stroke-width="1"/>'
+                    f'<svg x="{icon_x:.1f}" y="{icon_y:.1f}" width="20" height="20" viewBox="{vb}" fill="{svg_fill}">'
+                    f"{inner_ns}</svg>"
+                    f'<text x="{text_x:.1f}" y="{text_y:.1f}" font-family="{UI_FONT}" font-size="12.5" '
+                    f'font-weight="500" fill="{t["text"]}">{escape(name)}</text>'
+                    f"</g>"
+                )
+                cur_x += pw + pill_gap
+
+        return "\n".join(copies_svg), row_total_w
+
+    row1_svg, row1_w = build_row(TECH_ROW_1, 1, 46.0)
+    row2_svg, row2_w = build_row(TECH_ROW_2, 2, 98.0)
+    total_count = len(TECH_ROW_1) + len(TECH_ROW_2)
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="880" height="168" viewBox="0 0 880 168" fill="none" role="img" aria-label="Tech Stack — {total_count} technologies with official logos">
+  <defs>
+    <clipPath id="{uid}-viewport">
+      <rect x="16" y="40" width="848" height="106" rx="8"/>
+    </clipPath>
+    <linearGradient id="{uid}-fade-l" x1="16" y1="0" x2="76" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="{t['card']}" stop-opacity="1"/>
+      <stop offset="100%" stop-color="{t['card']}" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="{uid}-fade-r" x1="804" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="{t['card']}" stop-opacity="0"/>
+      <stop offset="100%" stop-color="{t['card']}" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+
+  <style>
+    @keyframes {uid}-left {{
+      0% {{ transform: translateX(0px); }}
+      100% {{ transform: translateX(-{row1_w:.1f}px); }}
+    }}
+    @keyframes {uid}-right {{
+      0% {{ transform: translateX(-{row2_w:.1f}px); }}
+      100% {{ transform: translateX(0px); }}
+    }}
+    .{uid}-r1 {{ animation: {uid}-left 32s linear infinite; }}
+    .{uid}-r2 {{ animation: {uid}-right 36s linear infinite; }}
+  </style>
+
+  <!-- Cozy Outer Card -->
+  <rect x="0.5" y="0.5" width="879" height="167" rx="14" fill="{t['card']}" stroke="{t['border']}" stroke-width="1"/>
+
+  <!-- Header -->
+  <circle cx="28" cy="21.5" r="4" fill="{t['amber']}"/>
+  <text x="40" y="26" font-family="{UI_FONT}" font-size="13" font-weight="700" fill="{t['text']}">Tech Stack</text>
+  <text x="856" y="26" font-family="{MONO_FONT}" font-size="10.5" fill="{t['muted']}" text-anchor="end">{total_count} technologies · official logos</text>
+
+  <!-- Clipped 2-Row Opposing Marquee Tracks -->
+  <g clip-path="url(#{uid}-viewport)">
+    <g class="{uid}-r1">
+{row1_svg}
+    </g>
+    <g class="{uid}-r2">
+{row2_svg}
+    </g>
+  </g>
+
+  <!-- Smooth Edge Fade Masks -->
+  <rect x="16" y="40" width="60" height="106" fill="url(#{uid}-fade-l)"/>
+  <rect x="804" y="40" width="60" height="106" fill="url(#{uid}-fade-r)"/>
+</svg>
+"""
+
+
+# ---------------------------------------------------------------------------
+# SVG 5: FALLBACK PAC-MAN CONTRIBUTION GAME (880 x 168, cozy card)
 # ---------------------------------------------------------------------------
 def build_pacman_path() -> list[tuple[float, float]]:
     waypoints: list[tuple[float, float]] = [(-1.5, 0.0)]
@@ -1449,6 +1679,8 @@ def main() -> None:
 
     ASSETS_DIR.mkdir(parents=True, exist_ok=True)
     data = fetch_github_data()
+    icons = fetch_devicon_svgs()
+    print(f"[info] Fetched {len(icons)} official Devicon SVGs from jsDelivr")
     lang_summary = ", ".join(f"{n} {p:.1f}%" for n, p, _ in data["top_languages"])
     print(
         f"[info] Data source: {data['source']} | "
@@ -1463,11 +1695,18 @@ def main() -> None:
         hero_svg = build_hero_lofi_svg(theme)
         stats_svg = build_stats_cards_svg(theme, data)
         activity_svg = build_activity_graph_svg(theme, data)
+        marquee_svg = build_tech_marquee_svg(theme, icons)
 
         (ASSETS_DIR / f"hero-lofi-{theme}.svg").write_text(hero_svg, encoding="utf-8")
         (ASSETS_DIR / f"stats-cards-{theme}.svg").write_text(stats_svg, encoding="utf-8")
         (ASSETS_DIR / f"activity-graph-{theme}.svg").write_text(activity_svg, encoding="utf-8")
-        generated.extend([f"hero-lofi-{theme}.svg", f"stats-cards-{theme}.svg", f"activity-graph-{theme}.svg"])
+        (ASSETS_DIR / f"tech-marquee-{theme}.svg").write_text(marquee_svg, encoding="utf-8")
+        generated.extend([
+            f"hero-lofi-{theme}.svg",
+            f"stats-cards-{theme}.svg",
+            f"activity-graph-{theme}.svg",
+            f"tech-marquee-{theme}.svg",
+        ])
 
         if not args.skip_pacman:
             pacman_svg = build_pacman_svg(theme, data)
