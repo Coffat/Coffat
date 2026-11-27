@@ -42,7 +42,7 @@
     <line x1="1" y1="8" x2="5" y2="8"/>
     <line x1="11" y1="8" x2="15" y2="8"/>
   </g>
-  <text x="58" y="75" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#1F1D1A">682</text>
+  <text x="58" y="75" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#1F1D1A">684</text>
   <text x="58" y="92" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8A8277">Contributions (1Y)</text>
 
   <!-- Tile 2: Public Repos -->
@@ -68,7 +68,7 @@
     <path d="M8.5 1.5C9.5 4.5 13 6 13 9.5a5 5 0 0 1-10 0c0-2 1.2-3.8 2.5-5 .2 1.5 1 2.2 1.8 2.2.2-1.8.4-3.7 1.2-5.2z"/>
   </g>
   <text x="258" y="143" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#1F1D1A">15d</text>
-  <text x="258" y="160" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8A8277">Longest Streak · 100d active</text>
+  <text x="258" y="160" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#8A8277">Longest Streak · 101d active</text>
 
   <!-- Subtle bottom animated accent bar -->
   <rect x="22" y="179" width="388" height="2.5" rx="1.25" fill="#ECE5D9"/>
